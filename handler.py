@@ -1,8 +1,8 @@
-'''
+"""
 Created on Jun 13, 2014
 
 @author: smedema
-'''
+"""
 
 import socket
 import threading
@@ -18,8 +18,7 @@ PORT = 11111
 
 
 class Session(object):
-    
-    
+
     def __init__(self):
         self.lock = threading.Lock()
         self.disconnect = threading.Event()
@@ -36,64 +35,73 @@ class Session(object):
     def run(self):
         self.connect_players()
         self.disconnect.wait()
-        for player in self.players:
-            player.socket.close()
-            player.stop()
-            player.join()
+        for plyr in self.players:
+            plyr.socket.close()
+            plyr.stop()
+            plyr.join()
         self.socket.close()
     
     @property
     def order(self):
         return self._order
+
     @order.setter
     def order(self, value):
         with self.lock:
-            if self._order == []:
+            if not self._order:
                 self._order = value
+
     @property
     def reward_game(self):
         return self._reward_game
+
     @reward_game.setter
     def reward_game(self, value):
         with self.lock:
             if self._reward_game == -1:
                 self._reward_game = value
+
     @property
     def num_players(self):
         return self._num_players
+
     @num_players.setter
     def num_players(self, value):
         with self.lock:
             if self._num_players == 0:
                 self._num_players = value
             elif self._num_players != value:
-                #problem!
+                # problem!
                 pass
+
     @property
     def IDs(self):
         temp = []
-        for player in self.players:
-            temp.append(player.ID)
+        for plyr in self.players:
+            temp.append(plyr.ID)
         return temp
+
     @property
     def IPs(self):
         temp = []
-        for player in self.players:
-            temp.append(player.IP)
+        for plyr in self.players:
+            temp.append(plyr.IP)
         return temp
+
     @property
     def all_set_up(self):
         if len(self.players) < self.num_players:
             return False
-        for player in self.players:
-            if not player.is_set_up:
+        for plyr in self.players:
+            if not plyr.is_set_up:
                 return False
         return True
+
     @property
     def all_contributions(self):
         answer_dict = {}
-        for player in self.players:
-            answer_dict[player.IP] = player.contributions
+        for plyr in self.players:
+            answer_dict[plyr.IP] = plyr.contributions
         return answer_dict
 
     def connect_players(self):
@@ -107,20 +115,19 @@ class Session(object):
     
     def _connect_player(self):
         conn, addr = self.socket.accept()     
-        self.players.append(PlayerThread(conn, addr, session=self))
+        self.players.append(PlayerThread(conn, addr, sess=self))
         print('{} connected.'.format(self.players[-1].IP))
         self.players[-1].start()
 
 
 class PlayerThread(threading.Thread):
-    
-    
-    def __init__(self, conn, addr, session):
+
+    def __init__(self, conn, addr, sess):
         super(PlayerThread, self).__init__()
         self.socket = conn
         self.socket.setblocking(0)
         self.port = addr[1]
-        self.session = session
+        self.session = sess
         
         self.IP = addr[0]
         self.ID = ''
@@ -187,7 +194,13 @@ class PlayerThread(threading.Thread):
             except socket.error as error_:
                 if error_[0] == errno.EWOULDBLOCK:
                     continue
-                elif error_[0] == 10054 or 104: #errno.WSAECONNRESET:
+                elif error_[0] == 10054 or 104:  # errno.WSAECONNRESET:
+                    # NOTE: this does not always work. If there is a
+                    # socket still accepting connections, it is not
+                    # actually stopped.
+                    # What this boils down to is that if you want to
+                    # quit the experiment, you have to connect all
+                    # players first.
                     print('Connection closed. Exiting...')
                     self.stop()
                     break
@@ -198,6 +211,7 @@ class PlayerThread(threading.Thread):
                     continue
 #                 print message
                 message_dict = loads(message)
+                reply = None
                 if message_dict[u'category'] == u'handler':
                     reply = self.message_command(message_dict)
                 else:
@@ -205,7 +219,6 @@ class PlayerThread(threading.Thread):
                     print('Recved a message that was not handler category. '
                           'Message:\n{}'.format(message_dict))
                 if reply is not None:
-#                     print reply
                     try:
                         self.socket.send('{}\n'.format(dumps(reply)))
                     except socket.error as err_:
@@ -219,7 +232,6 @@ class PlayerThread(threading.Thread):
 
 class QuitterThread(threading.Thread):
 
-    
     def __init__(self):
         super(QuitterThread, self).__init__()
         self._stop = threading.Event()
@@ -244,7 +256,7 @@ while not quitter_thr._stop.is_set():
         session = Session()
         session.run()
     except Exception as err_1:
-#         print('an error happened: {}'.format(err_1))
+        print('an error happened: {}'.format(err_1))
         try:
             for player in session.players:
                 player.socket.close()

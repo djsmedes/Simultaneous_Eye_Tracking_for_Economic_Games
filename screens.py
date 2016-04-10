@@ -1,17 +1,17 @@
-'''
+"""
 Created on Jun 25, 2014
 
 @author: smedema
-'''
+"""
 
 import abc
 import logging
 from math import floor, cos, sin, pi
 from random import choice
-from random import shuffle # @UnusedImport
+from random import shuffle
 from threading import Event
 
-from psychopy.visual import TextStim, ImageStim, Circle, Rect
+from psychopy.visual import TextStim, ImageStim, Circle
 from psychopy.event import Mouse, xydist, getKeys
 from psychopy.core import getAbsTime, wait
 
@@ -19,7 +19,7 @@ import button
 
 
 class Screen(object):
-    __metaclass__  = abc.ABCMeta
+    __metaclass__ = abc.ABCMeta
     default_font_size = 40
     
     def __init__(self,
@@ -31,8 +31,9 @@ class Screen(object):
                  wait_time=0
                  ):
         self.window = disp
-        self.origin = (0,0)
+        self.origin = (0, 0)
         self.wait_time = wait_time
+        self.t0 = 0
         if width is not None:
             self.width = width
         else:
@@ -54,7 +55,7 @@ class Screen(object):
         self.move_on_flag = Event()
         self.mouse = Mouse()
         
-    def run(self, debug_mode=False):
+    def run(self):
         self.t0 = getAbsTime()
         while not self.move_on_flag.is_set():
             if self.continue_button.clickable:
@@ -63,18 +64,22 @@ class Screen(object):
             elif self.wait_time > 0:
                 if getAbsTime() - self.t0 > self.wait_time:
                     self.continue_button.clickable = True
+                else:
+                    self.continue_button.clickable = False
+            elif self.wait_time == 0:
+                self.continue_button.clickable = True
             
-            self.draw(debug_mode)
+            self.draw()
             self.window.flip()
             wait(0.016666, 0.016666)
         self.cleanup()
 
     @abc.abstractmethod
     def draw(self, debug_mode=False):
-        '''To override!'''
+        """To override!"""
         
     def cleanup(self):
-        '''To override!'''
+        """To override!"""
         pass
     
     def _cfg_2_pix(self, dimension, cfg_val):
@@ -109,11 +114,11 @@ class Screen(object):
         except:
             width = None
         text_stim_to_return = TextStim(self.window,
-                                       text = cfg[u'text'],
-                                       pos = self.coords((self.x_cfg_2_pix(cfg[u'x']),
-                                                          self.y_cfg_2_pix(cfg[u'y']))),
-                                       height = cfg[u'font_size'],
-                                       wrapWidth = width)
+                                       text=cfg[u'text'],
+                                       pos=self.coords((self.x_cfg_2_pix(cfg[u'x']),
+                                                        self.y_cfg_2_pix(cfg[u'y']))),
+                                       height=cfg[u'font_size'],
+                                       wrapWidth=width)
         return text_stim_to_return
     
     def coords(self, arg1, arg2=None):
@@ -127,8 +132,7 @@ class Screen(object):
     
 
 class BlankScreen(Screen):
-    
-    
+
     def __init__(self, disp, duration):
         super(BlankScreen, self).__init__(disp)
         self.duration = duration
@@ -136,6 +140,7 @@ class BlankScreen(Screen):
     def draw(self, debug_mode=False):
         if getAbsTime() - self.t0 > self.duration:
             self.move_on_flag.set()
+
 
 class FeedbackScreen(Screen):
     
@@ -152,7 +157,7 @@ class FeedbackScreen(Screen):
                  height=None,
                  margin=None,
                  font_size=None,
-                 col_x_list=[],
+                 col_x_list=None,
                  AOIs=False):
         super(FeedbackScreen, self).__init__(disp)
         self.gaze_pos_getter = gaze_pos_getter
@@ -175,8 +180,9 @@ class FeedbackScreen(Screen):
             self.font_size = font_size
         else:
             self.font_size = config_dict[u'feedback_screen'][u'font_size']
+
         self.col_x_list = []
-        if col_x_list == []:
+        if col_x_list is None:
             self.col_x_list.append(
                     self.x_cfg_2_pix(
                             config_dict[u'feedback_screen'][u'left_col_x']
@@ -189,7 +195,9 @@ class FeedbackScreen(Screen):
                     self.x_cfg_2_pix(
                             config_dict[u'feedback_screen'][u'rite_col_x']
                     ))
-            del col_x_list
+        else:
+            self.col_x_list = col_x_list
+
         if FeedbackScreen.reversed:
             self.col_x_list.reverse()
         
@@ -202,14 +210,14 @@ class FeedbackScreen(Screen):
         
         row_spacing = (self.height - 2*self.margin)/(self.nrows-1)
         
-        
-        
         self.contr_col = []
         self.label_col = []
         self.payof_col = []
         
+        y_coords = []
         for i in range(self.nrows):
             y = self.window.margin + i*row_spacing
+            y_coords.append(y)
             temp_contr = TextStim(self.window, height=self.font_size)
             temp_label = TextStim(self.window, height=self.font_size)
             temp_payof = TextStim(self.window, height=self.font_size)
@@ -222,7 +230,7 @@ class FeedbackScreen(Screen):
                 temp_payof.setText('xx')
                 if i == 1:
                     temp_label.setText(cfg[u'you'])
-                elif i <= num_players:
+                elif i <= num_players:  # self.nrows - 3
                     temp_label.setText(cfg[u'others'][i-2])
                 elif i == self.SUMROWINDEX:
                     temp_label.setText(cfg[u'sum'])
@@ -236,35 +244,16 @@ class FeedbackScreen(Screen):
             self.label_col.append(temp_label)
             temp_payof.setPos(self.coords((self.col_x_list[2], y)))
             self.payof_col.append(temp_payof)
-            
-            self.AOIs = []
-            if AOIs:
-                for _ in range(3):
-                    self.AOIs.append(Rect(self.window,
-                                          width=400,
-                                          height=280,
-                                          lineColor='slateblue',
-                                          fillColor='steelblue'))
-                self.AOIs[-1].setPos(self.contr_col[-1].pos)
-                self.AOIs[-2].setPos(self.label_col[-1].pos)
-                self.AOIs[-3].setPos(self.payof_col[-1].pos)
         
+        self.AOI_coords = []
+        for x in self.col_x_list:
+            for y in y_coords:
+                self.AOI_coords.append((x, y))
+        self.AOI_coords.remove((self.col_x_list[1], y_coords[0]))
                 
     def draw(self, debug_mode=False):
         if getAbsTime() - self.t0 > 30:
-            self.move_on_flag.set()
-            
-        if self.AOIs != [] and self.gaze_pos_getter is not None:
-            self.gaze.pos = self.coords(self.gaze_pos_getter())
-            for shape in self.AOIs:
-                if shape.contains(self.gaze.pos):
-                    shape.setFillColor('slateblue')
-                else:
-                    shape.setFillColor('steelblue')
-            for shape in self.AOIs:
-                shape.draw()
-            self.gaze.draw()
-            
+            self.move_on_flag.set()   
         
         for i in range(self.nrows):
             self.label_col[i].draw()
@@ -275,26 +264,40 @@ class FeedbackScreen(Screen):
     def cleanup(self):
         self.move_on_flag.clear()
             
-    def update_info(self, contr_avg, payoff_avg, contr_sum, payoff_sum, my_contr, my_payoff, other_contr=[], other_payoff=[]):
+    def update_info(self,
+                    contr_avg,
+                    payoff_avg,
+                    contr_sum,
+                    payoff_sum,
+                    my_contr,
+                    my_payoff,
+                    other_contr=None,
+                    other_payoff=None):
+        if other_contr is None:
+            other_contr = []
+        if other_payoff is None:
+            other_payoff = []
         # This bit randomizes the order that the other players are
         # presented in on the feedback screen. Not yet tested to
         # make sure it works, but it should. Only matters if N > 2.
-#         if len(other_contr) > 1:
-#             indices = []
-#             for i in range(len(other_contr)):
-#                 indices.append(i)
-#             shuffle(indices)
-#             temp_contr = other_contr[:]
-#             temp_payoff = other_payoff[:]
-#             for i in range(len(indices)):
-#                 other_contr[i] = temp_contr[indices[i]]
-#                 other_payoff[i] = temp_payoff[indices[i]]
+        if len(other_contr) > 1:
+            indices = []
+            for i in range(len(other_contr)):
+                indices.append(i)
+            shuffle(indices)
+            temp_contr = []
+            temp_payoff = []
+            for i in indices:
+                temp_contr.append(other_contr[i])
+                temp_payoff.append(other_payoff[i])
+        else:
+            temp_contr = other_contr
+            temp_payoff = other_payoff
 
-        self.update_col(self.contr_col, contr_avg, contr_sum, my_contr, other_contr)
-        self.update_col(self.payof_col, payoff_avg, payoff_sum, my_payoff, other_payoff)
+        self.update_col(self.contr_col, contr_avg, contr_sum, my_contr, temp_contr)
+        self.update_col(self.payof_col, payoff_avg, payoff_sum, my_payoff, temp_payoff)
     
     def update_col(self, col, avg, sum_, mine, others):
-#         avg = str(avg).replace('.',',')
         avg = '{:n}'.format(avg)
         sum_ = '{:n}'.format(sum_)
         mine = '{:n}'.format(mine)
@@ -325,6 +328,8 @@ class ContribScreen(Screen):
         self.gaze_pos_getter = gaze_pos_getter
         self.instr_text_preformat = text
         self.contrib_choice = '__'
+        self.mouseover_threshold = 0
+        self.choice_coords = []
         if width is not None:
             self.width = width
         else:
@@ -349,19 +354,18 @@ class ContribScreen(Screen):
                 self.window, height=font_size,
                 text=self.instr_text_preformat.format(self.contrib_choice),
                 pos=self.coords((self.x_cfg_2_pix(cfg[u'text'][u'x']),
-                               self.y_cfg_2_pix(cfg[u'text'][u'y'])
-                               )),
+                                 self.y_cfg_2_pix(cfg[u'text'][u'y'])
+                                 )),
                 wrapWidth=self.w_cfg_2_pix(cfg[u'text'][u'width'])
                 )
         
         self.gaze = Circle(self.window, radius=5)
         self.gaze.fillColor = 'red'
-    
-        
+
     def draw(self, debug_mode=False): 
-        mouseX, mouseY = self.mouse.getPos()
+        mouse_x, mouse_y = self.mouse.getPos()
         for text_stim in self.contrib_choices:
-            if xydist((mouseX, mouseY), text_stim.pos) < self.mouseover_threshold:
+            if xydist((mouse_x, mouse_y), text_stim.pos) < self.mouseover_threshold:
                 text_stim.color = 'darkorange'
                 if self.mouse.getPressed()[0]:
                     self.contrib_choice = text_stim.text
@@ -387,8 +391,8 @@ class ContribScreen(Screen):
         '''OR: v_spacing = (self.height - 2*self.margin)/(nrows-1)'''
         self.mouseover_threshold = min(h_spacing, v_spacing)/4
         contrib_choices = []
-        for i in range(0,nrows*ncols):
-            xpos = self.margin + (i%ncols)*h_spacing
+        for i in range(0, nrows*ncols):
+            xpos = self.margin + (i % ncols)*h_spacing
             
             '''
             To move the array to the bottom of the page:
@@ -410,9 +414,10 @@ class ContribScreen(Screen):
             else:
                 temp = '{}'.format(i)
             contrib_choices.append(TextStim(win=self.window,
-                                                 text=temp,
-                                                 pos=self.coords((xpos,ypos)),
-                                                 height=font_size))
+                                            text=temp,
+                                            pos=self.coords((xpos, ypos)),
+                                            height=font_size))
+            self.choice_coords.append((xpos, ypos))
         return contrib_choices
         
 
@@ -420,7 +425,7 @@ class DetectPupilsScreen(Screen):
     
     def __init__(self, disp, text, config_dict, pupil_coords_getter, seconds_to_ok):
         super(DetectPupilsScreen, self).__init__(disp)
-        self.continue_button.setPos((0.0,0.0))
+        self.continue_button.setPos((0.0, 0.0))
         self.pupil_coords_getter = pupil_coords_getter
         cfg = config_dict[u'detect_pupils_screen']
         self.in_range_ctr = 0
@@ -431,23 +436,23 @@ class DetectPupilsScreen(Screen):
                 self.window,
                 text=text,
                 pos=self.coords((self.x_cfg_2_pix(cfg[u'text'][u'x']),
-                               self.y_cfg_2_pix(cfg[u'text'][u'y'])
-                               )),
+                                 self.y_cfg_2_pix(cfg[u'text'][u'y'])
+                                 )),
                 wrapWidth=self.x_cfg_2_pix(cfg[u'text'][u'width']),
                 height=cfg[u'text'][u'font_size']
                 )
                                 
         self.lefteye = []
         self.lefteye.append(Circle(self.window, radius=50))
-        self.lefteye[-1].fillColor='white'
+        self.lefteye[-1].fillColor = 'white'
         self.lefteye.append(Circle(self.window, radius=25))
-        self.lefteye[-1].fillColor='black'
+        self.lefteye[-1].fillColor = 'black'
         
         self.riteeye = []
         self.riteeye.append(Circle(self.window, radius=50))
-        self.riteeye[-1].fillColor='white'
+        self.riteeye[-1].fillColor = 'white'
         self.riteeye.append(Circle(self.window, radius=25))
-        self.riteeye[-1].fillColor='black'
+        self.riteeye[-1].fillColor = 'black'
         
 #         self.ok_indicator = RadialStim(
 #                 self.window, tex='none', mask='gauss', pos=(0,0),
@@ -455,7 +460,7 @@ class DetectPupilsScreen(Screen):
 #                 )
 
         self.ok_indicator = Circle(
-                self.window, radius=(350,200), fillColor='palegreen', 
+                self.window, radius=(350, 200), fillColor='palegreen',
                 opacity=0.05, lineColor=None
                 )
         
@@ -468,10 +473,9 @@ class DetectPupilsScreen(Screen):
                                     fillColor='green'
                                     ))
 
-        
     def draw(self, debug_mode=False):
         
-        ((leftx,lefty),(ritex,ritey)) = self.pupil_coords_getter()
+        ((leftx, lefty), (ritex, ritey)) = self.pupil_coords_getter()
         
         leftx *= self.window.hres
         lefty *= self.window.vres
@@ -479,45 +483,23 @@ class DetectPupilsScreen(Screen):
         ritey *= self.window.vres
         
         if leftx == 0.0 or lefty == 0.0:
-            leftx, lefty = (-5000,-5000)
+            leftx, lefty = (-5000, -5000)
         if ritex == 0.0 or ritey == 0.0:
-            ritex, ritey = (-5000,-5000)
+            ritex, ritey = (-5000, -5000)
         for circle in self.lefteye:
-            circle.pos = self.coords((leftx,lefty))
+            circle.pos = self.coords((leftx, lefty))
         for circle in self.riteeye:
-            circle.pos = self.coords((ritex,ritey))
-        
-#         ldist = xydist([leftx,lefty], (self.window.hres/2,self.window.vres/2))
-#         rdist = xydist([ritex,ritey], (self.window.hres/2,self.window.vres/2))
-#         if ldist+rdist < self.window.vres/2:
-#             self.in_range_ctr += 1
+            circle.pos = self.coords((ritex, ritey))
 
-        if (self.ok_indicator.contains(self.lefteye[0].pos) and
-            self.ok_indicator.contains(self.riteeye[0].pos)
-            ):
+        if self.ok_indicator.contains(self.lefteye[0].pos) and self.ok_indicator.contains(self.riteeye[0].pos):
             self.in_range_ctr += 1
             op = self.ok_indicator.opacity + 0.03
             self.ok_indicator.opacity = min(op, 0.65)
         else:
             op = self.ok_indicator.opacity - 0.03
             self.ok_indicator.opacity = max(op, 0.05)
-#         
-#         
-#         if missed_flag:
-#             temp = self.ok_indicator.color * 0.95
-#             temp[2] = 0.5
-#             temp[0] = 0
-#         else:
-#             ratio = self.window.vres/(3*(ldist+rdist))
-#             if ratio > 1:
-#                 ratio = 1
-#             temp = [0, ratio, 0.5]
-#  
-#         self.ok_indicator.color = temp
 
-        if ((self.in_range_ctr >= self.ctr_max) or 
-            debug_mode
-            ):
+        if (self.in_range_ctr >= self.ctr_max) or debug_mode:
             self.continue_button.clickable = True
 
         # draw commands
@@ -538,7 +520,7 @@ class InstructionsScreen(Screen):
     def __init__(self, disp, text, font_size=40, wait_time=0):
         super(InstructionsScreen, self).__init__(disp, wait_time=wait_time)
         self.instructions_text = TextStim(
-                disp, pos=(0,0), text=text, height=font_size,
+                disp, pos=(0, 0), text=text, height=font_size,
                 wrapWidth=self.w_cfg_2_pix(0.666)
                 )
                                         
@@ -606,7 +588,7 @@ class WaitScreen(EventInstructionsScreen):
         mouse_pos = self.mouse.getPos()
         x = mouse_pos[0] + self.indicator_dist*cos(self.ticker)
         y = mouse_pos[1] + self.indicator_dist*sin(self.ticker)
-        self.indicator.pos = (x,y)
+        self.indicator.pos = (x, y)
         self.indicator.draw()
         self.ticker += self.ticker_unit
         if self.ticker > self.ticker_max:
@@ -627,8 +609,8 @@ class DemoScreen(Screen):
         frame = self.frame_getter()
         xy = (frame[u'avg'][u'x'],
               frame[u'avg'][u'y'])
-        if xy == (0.0,0.0):
-            xy = (-5000,-5000)
+        if xy == (0.0, 0.0):
+            xy = (-5000, -5000)
 
         self.gaze.pos = self.coords(xy)
         self.gaze.draw()
@@ -645,8 +627,7 @@ class DemoScreen(Screen):
             
             
 class ImageScreen(Screen):
-    
-    
+
     def __init__(self,
                  disp,
                  text,
@@ -656,10 +637,12 @@ class ImageScreen(Screen):
                  text_pos=None,
                  image_pos=None,
                  wait_time=1,
-                 extra_image_stims=[]
+                 extra_image_stims=None
                  ):
         super(ImageScreen, self).__init__(disp, wait_time=wait_time)
         self.extra_image_stims = extra_image_stims
+        if self.extra_image_stims is None:
+            self.extra_image_stims = []
         self.wait_time = wait_time
         if self.wait_time == 0:
             self.continue_button.clickable = True
@@ -702,119 +685,21 @@ class ImageScreen(Screen):
         self.window.flip()
         self.window.flip()
         self.window.flip()
-        
-        
-class FlexibleResourcePresentationScreen(Screen):
-    
-    
-    def __init__(self, disp, text, extra_commands, wait_time=1, txt_dict=None, cfg_dict=None):
-        super(FlexibleResourcePresentationScreen, self).__init__(disp, wait_time)
-        self.txt_dict = txt_dict
-        self.cfg_dict = cfg_dict
-        self.wait_time = wait_time
-        if self.wait_time == 0:
-            self.continue_button.clickable = True
-        self.text_stim = TextStim(
-                win=self.window,
-                text=text,
-                pos=self.coords((self.x_cfg_2_pix(0.25),
-                               self.y_cfg_2_pix(0.5))),
-                height=Screen.default_font_size,
-                wrapWidth=self.w_cfg_2_pix(0.4)
-                )
-        self.extra_draw_stims = []
-        for command in extra_commands:
-            if type(command) == str or type(command) == unicode:
-                items = eval(command)
-                for item in items:
-                    self.extra_draw_stims.append(item)
-                
-    def draw(self, debug_mode=False):
-        if not self.continue_button.clickable:
-            if getAbsTime() - self.t0 > self.wait_time:
-                self.continue_button.clickable = True
-        self.continue_button.draw()
-        self.text_stim.draw()
-        for stim in self.extra_draw_stims:
-            stim.draw()     
-
-    def painfully_clear_example(self, n):
-        img = ImageStim(
-                win=self.window,
-                image='resources/worked_example/Slide{}.PNG'.format(n),
-                pos=(0,200),
-                size=(960,720)
-                )
-        background = Rect(
-                win=self.window,
-                width=img.size[0]+10,
-                height=img.size[1]+10,
-                fillColor='white',
-                lineColor=None,
-                pos=img.pos
-                )
-        return [background, img]
-
-    def mini_contrib_screen(self):
-        img = ImageStim(
-                win=self.window,
-                image='resources/contrib_screen.PNG',
-                pos=self.coords((self.x_cfg_2_pix(0.75),
-                                 self.y_cfg_2_pix(0.33))),
-                size=(960, 540)
-                )
-        background = Rect(
-                win=self.window,
-                width=img.size[0]+10,
-                height=img.size[1]+10,
-                fillColor='white',
-                lineColor=None,
-                pos=img.pos
-                )
-        return [background, img]   
-        
-    def mini_feedback_screen(self, n):
-        if FeedbackScreen.reversed:
-            img = 'resources/feedback/reversed/Slide{}.PNG'.format(n)
-        else:
-            img = 'resources/feedback/default/Slide{}.PNG'.format(n)
-
-        image = ImageStim(
-                    win=self.window,
-                    image=img,
-                    pos=self.coords((self.x_cfg_2_pix(0.75),
-                                     self.y_cfg_2_pix(0.33))),
-                    size=(960, 540)
-                    )
-        background = Rect(
-                win=self.window,
-                width=image.size[0]+10,
-                height=image.size[1]+10,
-                fillColor='white',
-                lineColor=None,
-                pos=image.pos
-                )
-        return [background, image]
-
-        
-    def cleanup(self):
-        self.window.flip()
-        self.window.flip()
-        self.window.flip()
 
 
 class KeyboardInputScreen(Screen):
-    
-    
-    def __init__(self, disp, text, input_prompt_list, correct_ans_list=None, extra_draw_list=[]):
-        super(KeyboardInputScreen, self).__init__(disp)
+
+    def __init__(self, disp, text, input_prompt_list, correct_ans_list=None, extra_draw_list=None, wait_time=1):
+        super(KeyboardInputScreen, self).__init__(disp, wait_time=wait_time)
         self.instructions_text = TextStim(
                 disp, pos=(0, disp.vres*0.2), text=text, height=40,
-                wrapWidth=self.w_cfg_2_pix(0.666)
+                wrapWidth=1400
                 )
         self.input_prompt_list = []
         self.input_field_list = []
         self.extra_draw_list = extra_draw_list
+        if self.extra_draw_list is None:
+            self.extra_draw_list = []
         height_list = []
         for i in range(len(input_prompt_list)):
             height_list.append(
@@ -842,7 +727,6 @@ class KeyboardInputScreen(Screen):
         self.correct_ans_list = correct_ans_list
             
     def draw(self, debug_mode=False):
-        self.continue_button.clickable = True
         key_list = getKeys()
         if self.active_input_field is not None:
             for key in key_list:
@@ -856,7 +740,7 @@ class KeyboardInputScreen(Screen):
                         self.active_input_field = self.input_field_list[new_index]
                     except IndexError:
                         self.active_input_field = self.input_field_list[0]
-                elif key in ['1','2','3','4','5','6','7','8','9','0']:
+                elif key in ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']:
                     self.active_input_field.text = temp + key
                 elif key in ['num_0', 'num_1', 'num_4', 'num_7', 'num_2', 'num_5', 'num_8', 'num_3', 'num_6', 'num_9']:
                     self.active_input_field.text = temp + key[-1]
@@ -872,9 +756,7 @@ class KeyboardInputScreen(Screen):
         for input_field in self.input_field_list:
             if input_field.text == '':
                 self.continue_button.clickable = False
-        
-                
-            
+
         self.instructions_text.draw()
         self.continue_button.draw()
         for index, input_ in enumerate(self.input_field_list):
@@ -890,49 +772,41 @@ class KeyboardInputScreen(Screen):
         for item in self.input_field_list:
             self.answer_list.append(item.text)
         self.window.flip()
-        self.window.flip()
-        
-#         
-# class PainfullyClearInstructions(Screen):
-#         
-#         
-#         def __init__(self, disp):
-#             super(PainfullyClearInstructions, self).__init__(disp)
-#             
-#             self.mypoints = []
-#             self.yourpoints = []
-#             for x, y in self.gen_points_coords(20, 4, 300, 300):
-#                 self.mypoints.append(Circle(
-#                         win=self.window, radius=10,
-#                         fillColor='white', lineColor=None, pos=(x,y)
-#                         ))
-#             for x, y in self.gen_points_coords(20, 4, self.width-300-3*30, 300):
-#                 self.mypoints.append(Circle(
-#                         win=self.window, radius=10,
-#                         fillColor='black', lineColor=None, pos=(x,y)
-#                         ))
-#                 
-#         def gen_points_coords(self, n, n_cols, col_1_x, row_1_y):
-#             ys = []
-#             xs = []
-#             for i in range(n):
-#                 ys.append(floor((row_1_y + 30*i)/n_cols))
-#                 xs.append(col_1_x + 30*(i % n_cols))
-#             return zip(xs, ys)
-#         
-#         def step1(self):
-            
-                
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
 
-        
+        key_list = getKeys()
+        if self.active_input_field is not None:
+            for key in key_list:
+                temp = self.active_input_field.text
+                if key == 'backspace':
+                    if len(temp) > 0:
+                        self.active_input_field.text = temp[:-1]
+                elif key == 'tab':
+                    new_index = self.input_field_list.index(self.active_input_field) + 1
+                    try:
+                        self.active_input_field = self.input_field_list[new_index]
+                    except IndexError:
+                        self.active_input_field = self.input_field_list[0]
+                elif key in ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']:
+                    self.active_input_field.text = temp + key
+                elif key in ['num_0', 'num_1', 'num_4', 'num_7', 'num_2', 'num_5', 'num_8', 'num_3', 'num_6', 'num_9']:
+                    self.active_input_field.text = temp + key[-1]
+                elif key in ['comma', 'period', 'num_decimal']:
+                    self.active_input_field.text = temp + ','
+        for index, input_field in enumerate(self.input_field_list):
+            if self.mouse.isPressedIn(input_field._frame, [0]):
+                self.active_input_field = input_field
+            if input_field is self.active_input_field:
+                input_field._frame.fillColor = 'white'
+            elif input_field._frame.fillColor == 'white':
+                input_field._frame.fillColor = 'lightgrey'
+        for input_field in self.input_field_list:
+            if input_field.text == '':
+                self.continue_button.clickable = False
+
+        self.instructions_text.draw()
+        self.continue_button.draw()
+        for index, input_ in enumerate(self.input_field_list):
+            input_.draw()
+            self.input_prompt_list[index].draw()
+        for item in self.extra_draw_list:
+            item.draw()

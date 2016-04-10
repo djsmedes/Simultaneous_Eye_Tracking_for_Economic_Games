@@ -1,21 +1,22 @@
-'''
+"""
 Created on Jul 29, 2014
 
 @author: smedema
-'''
+"""
 
 import screens
 
+
 def calibrate(window, et_server, exp_txt_dict, exp_cfg_dict, debug_mode=False):
-    '''
+    """
     This is the calibration block. If we are in debug mode, no need
     to redo the calibration if we have one already, so we try to
     get an existing one and return that.
-    
+
     Otherwise, we attempt calibration 3 times. If even the third
     time fails, we just continue the experiment so that we can at
     least get data on one subject.
-    '''
+    """
     window.flip()
     if debug_mode:
         if et_server.iscalibrated:

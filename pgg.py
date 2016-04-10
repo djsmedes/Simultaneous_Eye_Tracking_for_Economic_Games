@@ -1,8 +1,8 @@
-'''
+"""
 Created on Jul 21, 2014
 
 @author: smedema
-'''
+"""
 
 import threading
 from time import sleep
@@ -11,8 +11,7 @@ from datetime import datetime
 
 
 class PublicGoodsGame(object):
-    
-    
+
     def __init__(
             self, 
             num_rounds,
@@ -71,7 +70,7 @@ class PublicGoodsGame(object):
             summary_off = datetime.now().isoformat(' ')
             self.blank_screen.run()
             
-            other_contrib_ls = [None]*(self.num_players)
+            other_contrib_ls = [None]*self.num_players
             for IP, value_ in contrib_dict.iteritems():
                 other_contrib_ls[self.IP2num_dict[IP]] = value_
                     
@@ -80,13 +79,13 @@ class PublicGoodsGame(object):
                 if index == 0:
                     continue
                 else:
-                    other_contrib_str = other_contrib_str + '{}, '.format(contrib)
+                    other_contrib_str += '{}, '.format(contrib)
             
             with open(self.contrib_file_name, 'a') as contribs:
                 contribs.write('{}, {}, {}, {}{}, {}, {}, {}, {}\n'.format(
                         game_number,
                         which_round,
-                        self.contrib_screen.contrib_choice,
+                        self.contrib_screen.contrib_choice.strip(),
                         other_contrib_str,
                         my_payoff,
                         contr_onset,
@@ -94,16 +93,15 @@ class PublicGoodsGame(object):
                         summary_onset,
                         summary_off
                         ))
-        
-    
+
     def calculate_feedback_and_update(self, contr_dict):
-        '''
-        This is where we actually calculate the results of each round. 
-         
+        """
+        This is where we actually calculate the results of each round.
+
         We need a dictionary of contributions whose keys are the IP
         addresses of the computers from which each contribution was
         made.
-        '''
+        """
         contr_sum = 0
         for _, contr in contr_dict.iteritems():
             contr_sum += contr
@@ -115,8 +113,10 @@ class PublicGoodsGame(object):
             payoff_dict[IP] = self.endowment - contr + bonus
             payoff_sum += payoff_dict[IP]
             
-        payoff_avg = payoff_sum/self.num_players*1.0
-        
+        payoff_avg = payoff_sum/(self.num_players*1.0)
+
+        my_contr = None
+        my_payoff = None
         other_contr = [None]*(self.num_players-1)
         other_payoff = [None]*(self.num_players-1)
         for IP, num in self.IP2num_dict.iteritems(): 
@@ -147,5 +147,3 @@ class PublicGoodsGame(object):
                     contrib_dict[IP] = list_[-1]
         self.contribution_q.put(contrib_dict)
         self.all_contributions_in.set()
-    
-

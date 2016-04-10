@@ -1,8 +1,8 @@
-'''
+"""
 Created on Jul 1, 2014
 
 @author: smedema
-'''
+"""
 
 from random import shuffle
 
@@ -11,7 +11,6 @@ from psychopy.core import wait, getTime
 
 
 class CalibratableWindow(Window):
-
 
     def __init__(self,
                  num_calib_points=9,
@@ -26,6 +25,8 @@ class CalibratableWindow(Window):
         self.num_calib_points = num_calib_points
         self.margin = margin
         self.calib_points_coords = self.gen_calib_point_coords()
+        self.outer_point = Circle()
+        self.inner_point = Circle()
         
     def calibrate(self, et_comm):
         self.setMouseVisible(False)
@@ -34,11 +35,11 @@ class CalibratableWindow(Window):
         if start_reply[u'statuscode'] == 403:
             et_comm.abort_calibration()
             et_comm.start_calibration(self.num_calib_points)
-        calibration_obj={}
-        for x,y in self.calib_points_coords:
-            self.point_place(x,y)
+        calibration_obj = {}
+        for x, y in self.calib_points_coords:
+            self.point_place(x, y)
             wait(0.750)            
-            et_comm.start_calib_point(x,y)
+            et_comm.start_calib_point(x, y)
             self.point_expand_contract(duration=1)
             calibration_obj = et_comm.end_calib_point()
             wait(0.250)
@@ -48,13 +49,13 @@ class CalibratableWindow(Window):
     def make_points(self):    
         self.outer_point = Circle(self, radius=25)
         self.outer_point.fillColor = 'white'
-        self.outer_point.setPos((5000,5000))
+        self.outer_point.setPos((5000, 5000))
         self.inner_point = Circle(self, radius=5)
         self.inner_point.fillColor = 'red'
-        self.inner_point.setPos((5000,5000))
+        self.inner_point.setPos((5000, 5000))
     
     def point_place(self, x, y):
-        xy_tuple = self.tl2c((x,y))
+        xy_tuple = self.tl2c((x, y))
         self.outer_point.setPos(xy_tuple)
         self.inner_point.setPos(xy_tuple)
         self.outer_point.draw()
@@ -64,7 +65,12 @@ class CalibratableWindow(Window):
     def tl2c(self, coords_tuple):
         x = coords_tuple[0] - self.hres/2
         y = coords_tuple[1] - self.vres/2
-        return (x, -y)
+        return x, -y  # returns a tuple
+
+    def c2tl(self, coords_tuple):
+        x = coords_tuple[0] + self.hres/2
+        y = (-coords_tuple[1]) + self.vres/2
+        return x, y  # returns a tuple
             
     def point_expand_contract(self, duration):
         start_time = getTime()
@@ -106,10 +112,3 @@ class CalibratableWindow(Window):
                 coord_list.append((col*h_spacing + self.margin, row*v_spacing + self.margin))
         shuffle(coord_list)
         return coord_list
-    
-    
-    
-    
-    
-    
-    

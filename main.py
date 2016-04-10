@@ -6,7 +6,7 @@ from os import _exit
 from psychopy import gui
 
 import experiments
-import my_exceptions
+
 
 def _quit_all():
     alive_threads = threading.enumerate()
@@ -26,18 +26,16 @@ def _quit_all():
 init_dlg = gui.Dlg(title='EyeGames')
 init_dlg.addField('Subject ID')
 init_dlg.addField('Sprache', choices=['deutsch', 'english'])
-init_dlg.addField('Mode', choices=['experiment','demo', 'debug'])
+init_dlg.addField('Mode', choices=['experiment', 'demo', 'debug'])
 init_dlg.show()
 if init_dlg.OK:
-    if init_dlg.data[2] == 'experiment':
-        TEST_MODE = False
-        DEBUG_MODE = False
-    elif init_dlg.data[2] == 'demo':
-        TEST_MODE = True
-        DEBUG_MODE = False
+    test_mode = False
+    debug_mode = False
+    if init_dlg.data[2] == 'demo':
+        test_mode = True
     elif init_dlg.data[2] == 'debug':
-        TEST_MODE = True
-        DEBUG_MODE = True
+        test_mode = True
+        debug_mode = True
     
     cfg_file = 'EyeGames.cfg'
     stream1 = file(cfg_file)
@@ -45,7 +43,7 @@ if init_dlg.OK:
     stream1.close()
     header_str = ''
     for i in range(1, exp_cfg_dict[u'exp_parameters'][u'num_players']):
-        header_str = header_str + 'opponent_{}_contrib, '.format(i)
+        header_str += 'opponent_{}_contrib, '.format(i)
     
     txt_file = 'resources/{}/exp_text.txt'.format(init_dlg.data[1])
     stream2 = file(txt_file)
@@ -56,8 +54,7 @@ if init_dlg.OK:
         locale.setlocale(locale.LC_ALL, locale='English_United States')
     elif init_dlg.data[1] == 'deutsch':
         locale.setlocale(locale.LC_ALL, locale='German_Germany')
-        
-    
+
     own_ID = init_dlg.data[0]
     exp_cfg_dict[u'exp_parameters'][u'Player ID'] = own_ID
 
@@ -82,7 +79,7 @@ if init_dlg.OK:
                 contrib_file_name=contrib_file_name,
                 details_file_name=details_file_name
                 )
-    new_experiment.run(debug_mode=DEBUG_MODE, test_mode=TEST_MODE)
+    new_experiment.run(debug_mode=debug_mode, test_mode=test_mode)
     _quit_all()
 
 else:

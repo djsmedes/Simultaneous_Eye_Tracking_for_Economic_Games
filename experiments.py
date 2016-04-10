@@ -1,8 +1,8 @@
-'''
+"""
 Created on Jun 6, 2014
 
 @author: smedema
-'''
+"""
 
 from threading import Event, Thread
 from time import sleep
@@ -11,7 +11,7 @@ from socket import gethostbyname, gethostname
 
 from psychopy.event import waitKeys
 
-from pytribe import EyeTribeServer
+from thepyetribe import EyeTribeServer
 from pgg import PublicGoodsGame
 import calibration_protocol
 import instructions
@@ -21,12 +21,12 @@ import screens
 
 
 class ExperimentOne(object):
-    
-    
+
     def __init__(self, exp_cfg_dict, exp_txt_dict, eyedata_file_name, contrib_file_name, details_file_name):
         self.exp_cfg_dict = exp_cfg_dict
         self.exp_txt_dict = exp_txt_dict
-        
+        self.IP2num_dict = {}
+
         self.ID = self.exp_cfg_dict[u'exp_parameters'][u'Player ID']
         self.num_calib_points = self.exp_cfg_dict[u'exp_parameters'][u'num_calib_points']
         self.num_players = self.exp_cfg_dict[u'exp_parameters'][u'num_players']
@@ -53,6 +53,7 @@ class ExperimentOne(object):
         self.randomize_reward_round_and_order()
         
         self.order = self.handler_comm.get_value(u'order')
+        self.reward_game = self.handler_comm.get_value(u'reward_game')
         
         temp_mult = self.multipliers[:]
         for i, order_num in enumerate(self.order):
@@ -66,16 +67,11 @@ class ExperimentOne(object):
         with open(self.details_file_name, 'a') as deets:
             for key, value in self.exp_cfg_dict[u'exp_parameters'].iteritems():
                 deets.write('{}: {}\n\n'.format(key, value))
-            deets.write(
-                    '''summary_scr_reversed: {}
-# False means contributions in left column.\n\n'''.format(
-                    screens.FeedbackScreen.reversed
-                    ))
+            deets.write('summary_scr_reversed: {}\n'.format(screens.FeedbackScreen.reversed))
+            deets.write('# False means contributions in left column.\n\n')
                 
         self.game_total_payoffs = []
-        
-        
-        
+
     def run(self, debug_mode=False, test_mode=False):
         # If we are in test mode, don't go fullscreen because we want
         # to be able to easily kill the process.
@@ -94,16 +90,15 @@ class ExperimentOne(object):
                     self.details_file_name
                     )
             time_est_thr.join()
-        
-        screens.DetectPupilsScreen(
-                disp=self.window, config_dict=self.exp_cfg_dict,
-                text=self.exp_txt_dict[u'detect_pupils_screen'],
-                pupil_coords_getter=self.et_server.get_pupil_locations,
-                seconds_to_ok=self.exp_cfg_dict[u'detect_pupils_screen'][u'seconds_to_ok']
-                ).run(debug_mode)
+            screens.DetectPupilsScreen(
+                    disp=self.window, config_dict=self.exp_cfg_dict,
+                    text=self.exp_txt_dict[u'detect_pupils_screen'],
+                    pupil_coords_getter=self.et_server.get_pupil_locations,
+                    seconds_to_ok=self.exp_cfg_dict[u'detect_pupils_screen'][u'seconds_to_ok']
+                    ).run()
                 
         self.calibration = calibration_protocol.calibrate(
-            self.window, self.et_server, self.exp_txt_dict,self.exp_cfg_dict, debug_mode
+            self.window, self.et_server, self.exp_txt_dict, self.exp_cfg_dict, debug_mode
             )            
         
         all_set_up_flag = Event()
@@ -118,7 +113,7 @@ class ExperimentOne(object):
                     disp=self.window,
                     end_event=all_set_up_flag,
                     frame_getter=lambda: self.et_server.frame
-                    ).run(debug_mode)
+                    ).run()
             self.et_server.push = False
         else:
             Thread(target=self.are_all_set_up, args=(
@@ -129,8 +124,7 @@ class ExperimentOne(object):
                     text=self.exp_txt_dict[u'wait'],
                     end_event=all_set_up_flag
                     ).run()
-            
-        self.IP2num_dict = {}
+
         other_IP_num = 1
         IPs = self.handler_comm.get_value(u'IPs')
         my_IP = gethostbyname(gethostname())
@@ -172,12 +166,17 @@ class ExperimentOne(object):
                 num_players=self.num_players,
                 config_dict=self.exp_cfg_dict
                 )
-        
+            
         blank_screen = screens.BlankScreen(
                 disp=self.window, duration=0.05
                 )
         
-        
+        with open(self.details_file_name, 'a') as deets:
+            deets.write('contribution_choice_coords: {}\n\n'.format(contrib_screen.choice_coords))
+            deets.write('feedback_screen_AOI_coords: {}\n\n'.format(feedback_screen.AOI_coords))
+            deets.write('continue_button_coords: {}\n\n'.format(
+                    self.window.c2tl(contrib_screen.continue_button.pos)
+                    ))
         
         for game_number in range(1, self.num_games+1):
             if game_number != 1:
@@ -221,12 +220,11 @@ class ExperimentOne(object):
                             )
                     ).run()
             screens.BlankScreen(disp=self.window, duration=0.01).run()
-        
-        reward_game = self.handler_comm.get_value(u'reward_game')
-        reward_points = self.game_total_payoffs[reward_game]
+
+        reward_points = self.game_total_payoffs[self.reward_game]
         reward_cash = round(self.currency_per_point*reward_points + self.show_up_fee, 2)
         with open(self.details_file_name, 'a') as deets:
-            deets.write('reward_game: {}\n'.format(reward_game+1))
+            deets.write('reward_game: {}\n'.format(self.reward_game+1))
             deets.write('reward_points: {:n}\n'.format(reward_points))
             deets.write('reward_cash: {:n}\n'.format(reward_cash))
             deets.write('# Includes 6 euro show up fee\n\n')
@@ -234,7 +232,7 @@ class ExperimentOne(object):
         experiment_end = Event()
         Thread(target=self.experiment_ender, args=(experiment_end,)).start()
         final_screen_text = self.exp_txt_dict[u'final_screen'].format(
-                game=(reward_game+1),
+                game=(self.reward_game+1),
                 points='{:n}'.format(reward_points),
                 cash='{:n}'.format(reward_cash)
                 )
@@ -258,33 +256,19 @@ class ExperimentOne(object):
         all_set_up_flag.set()
     
     def calc_and_record_time_diffs(self):
-        time_diff = False
-        while not time_diff:
-            time_diff = self.et_server.est_cpu_minus_tracker_time()
+        time_diff = self.et_server.est_cpu_minus_tracker_time()
         with open(self.details_file_name, 'a') as deets:
             deets.write('''tracker_time_offset: {}
 # CPU time = tracker time + this value.\n\n'''.format(
                     time_diff
                     ))
         return time_diff
-        
-#     def calc_and_record_reward(self):
-#         reward_game = self.handler_comm.get_value(u'reward_game')
-#         reward_points = self.game_total_payoffs[reward_game]
-#         reward_cash = self.currency_per_point*reward_points + self.show_up_fee
-#         with open(self.details_file_name, 'a') as deets:
-#             deets.write('reward_game: {}\n'.format(reward_game+1))
-#             deets.write('reward_points: {}\n'.format(reward_points))
-#             deets.write('reward_cash: {}\n'.format(reward_cash))
-#             deets.write('# Includes 6 euro show up fee\n\n')
-#         reward_string = '{0:.2f}'.format(reward_cash).replace('.',',')
-#         return {'reward_game': reward_game+1, 'reward_points': reward_points, 'reward_cash': reward_string}
     
     def randomize_reward_round_and_order(self):
-        '''Currently, this function only randomizes the cdr of the list
+        """Currently, this function only randomizes the cdr of the list
         in config file, i.e. it leaves the first in place but
         randomizes the others.
-        '''
+        """
         seq_ = []
         for i in range(self.num_games):
             seq_.append(i)
@@ -293,19 +277,3 @@ class ExperimentOne(object):
         shuffle(seq_)
         seq_.insert(0, 0)
         self.handler_comm.set_values({u'order': seq_})
-
-
-        
-        
-
-        
- 
-        
-        
-        
-        
-        
-        
-        
-        
-        

@@ -1,0 +1,3 @@
+[submodule "thepyetribe"]
+	path = thepyetribe
+	url = https://github.com/djsmedes/thepyetribe.git

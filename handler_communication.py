@@ -1,8 +1,8 @@
-'''
+"""
 Created on Jul 15, 2014
 
 @author: smedema
-'''
+"""
 
 
 import socket
@@ -16,12 +16,12 @@ import my_exceptions
 BUFSIZE = 4096
 INTERVAL = 0.250
 
+
 class ClientThread(threading.Thread):
 
-    
     def __init__(self, host, port, ID, num_players):
         super(ClientThread, self).__init__()
-        self.socket = socket.create_connection((host,port), None)
+        self.socket = socket.create_connection((host, port), None)
         self.lock = threading.Lock()
         self.set_values({u'ID': ID})
         self.set_values({u'num_players': num_players})
@@ -69,9 +69,7 @@ class ClientThread(threading.Thread):
             self._stop.set()
     
     def send_message(self, request, values=None):
-        to_send_dict = {}
-        to_send_dict[u'category'] = u'handler'
-        to_send_dict[u'request'] = request
+        to_send_dict = {u'category': u'handler', u'request': request}
         if values is not None:
             to_send_dict[u'values'] = values
         to_send_str = dumps(to_send_dict) + '\n'
@@ -98,21 +96,15 @@ class ClientThread(threading.Thread):
                         else:
                             raise my_exceptions.HandlerException(self.get_stack[index])
         return reply
-        
-    
+
     def append_values(self, values_dict):
         self.send_message(u'append', values_dict)
     
     def set_is_set_up(self, tf):
-        self.set_values({u'is_set_up':tf})
+        self.set_values({u'is_set_up': tf})
     
     def send_contrib(self, contribution):
-        self.append_values({u'contributions':contribution})
+        self.append_values({u'contributions': contribution})
         
     def report_contribution(self, contribution):
         self.send_message(u'append', {u'contributions': contribution})
-        
-    
-    
-    
-    
