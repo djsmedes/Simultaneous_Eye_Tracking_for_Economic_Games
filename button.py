@@ -1,13 +1,17 @@
 """
-Created on Jun 12, 2014
-
-@author: smedema
+@author: djs
+@revision history:
+    *djs 06/14 - created
+    *djs 04/16 - updating documentation
 """
 
 from psychopy import visual
 
 
 class Button(object):
+    """ A button that can have text on it. Also has a "clickable" property, but relies on external code to check it to
+        determine what should happen on a click.
+    """
 
     def __init__(
             self,
@@ -76,14 +80,32 @@ class Button(object):
             self._frame.fillColor = self.clickable_color
         else:
             self._frame.fillColor = self.not_clickable_color
-    
+
+    @property
+    def frame(self):
+        return self._frame
+
+    @property
+    def color(self):
+        return self._frame.fillColor
+
+    @color.setter
+    def color(self, new_color):
+        self._frame.fillColor = new_color
+
     def draw(self):
         self._frame.draw()
         self._text_stim.draw()
     
     def setPos(self, pos):
+        """ For PsychoPy compatibility (can easily use the .setPos method of every object in a list)
+        :param pos: tuple with the position you wish to set
+        """
         self._frame.pos = pos
         self._text_stim.pos = pos
         
     def setText(self, text):
+        """ For PsychoPy compatibility
+        :param text: the text to set
+        """
         self._text_stim.setText(text)

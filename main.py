@@ -1,7 +1,14 @@
+"""
+@author: djs
+@revision history:
+    *djs 07/14 - created
+    *djs 04/16 - updating documentation
+"""
+
 import yaml
 import threading
 import locale
-from os import _exit
+from sys import exit
 
 from psychopy import gui
 
@@ -19,7 +26,7 @@ def _quit_all():
             except AttributeError:
                 print 'AttributeError: {} does not have a stop() method.'.format(repr(thread))
     locale.setlocale(locale.LC_ALL, '')
-    _exit(0)
+    exit(0)
 
 # SCRIPT BEGINS HERE
 
@@ -29,12 +36,12 @@ init_dlg.addField('Sprache', choices=['deutsch', 'english'])
 init_dlg.addField('Mode', choices=['experiment', 'demo', 'debug'])
 init_dlg.show()
 if init_dlg.OK:
-    test_mode = False
+    demo_mode = False
     debug_mode = False
     if init_dlg.data[2] == 'demo':
-        test_mode = True
+        demo_mode = True
     elif init_dlg.data[2] == 'debug':
-        test_mode = True
+        demo_mode = True
         debug_mode = True
     
     cfg_file = 'EyeGames.cfg'
@@ -77,13 +84,12 @@ if init_dlg.OK:
                 exp_txt_dict=exp_txt_dict,
                 eyedata_file_name=eyedata_file_name,
                 contrib_file_name=contrib_file_name,
-                details_file_name=details_file_name
+                details_file_name=details_file_name,
+                debug_mode=debug_mode,
+                demo_mode=demo_mode
                 )
-    new_experiment.run(debug_mode=debug_mode, test_mode=test_mode)
+    new_experiment.run()
     _quit_all()
 
 else:
     _quit_all()
-        
-        
-        

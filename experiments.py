@@ -1,7 +1,8 @@
 """
-Created on Jun 6, 2014
-
-@author: smedema
+@author: djs
+@revision history:
+    *djs 06/14 - created
+    *djs 04/16 - updating documentation
 """
 
 from threading import Event, Thread
@@ -21,11 +22,27 @@ import screens
 
 
 class ExperimentOne(object):
+    """ This class will run a very specific experiment.
+    """
 
-    def __init__(self, exp_cfg_dict, exp_txt_dict, eyedata_file_name, contrib_file_name, details_file_name):
+    def __init__(self, exp_cfg_dict, exp_txt_dict, eyedata_file_name, contrib_file_name, details_file_name,
+                 debug_mode=False, demo_mode=False):
+        """
+        :param exp_cfg_dict: contains configuration information
+        :param exp_txt_dict: contains text users will see
+        :param eyedata_file_name: name of the file we want to write eye tracker data to
+        :param contrib_file_name: name of the file we want to write behavioral data to
+        :param details_file_name: name of the file we want to write experiment details to
+        :param debug_mode: if True, many safeguards are disabled, as it is assumed you know what you are doing
+        :param demo_mode: if True, the program will not go fullscreen (making it easier to switch between multiple
+                          applications
+        """
         self.exp_cfg_dict = exp_cfg_dict
         self.exp_txt_dict = exp_txt_dict
         self.IP2num_dict = {}
+        self.calibration = {}
+        self.debug_mode = debug_mode
+        self.demo_mode = demo_mode
 
         self.ID = self.exp_cfg_dict[u'exp_parameters'][u'Player ID']
         self.num_calib_points = self.exp_cfg_dict[u'exp_parameters'][u'num_calib_points']
@@ -72,17 +89,18 @@ class ExperimentOne(object):
                 
         self.game_total_payoffs = []
 
-    def run(self, debug_mode=False, test_mode=False):
-        # If we are in test mode, don't go fullscreen because we want
-        # to be able to easily kill the process.
         self.window = calibratable_window.CalibratableWindow(
-                num_calib_points=self.num_calib_points,
-                size=self.exp_cfg_dict[u'exp_parameters'][u'resolution'],
-                color=self.exp_cfg_dict[u'exp_globals'][u'background_color'],
-                units='pix', fullscr=(not test_mode)
-                )
-        
-        if not debug_mode:
+            num_calib_points=self.num_calib_points,
+            size=self.exp_cfg_dict[u'exp_parameters'][u'resolution'],
+            color=self.exp_cfg_dict[u'exp_globals'][u'background_color'],
+            units='pix', fullscr=(not demo_mode)
+        )
+
+    def run(self):
+        """ Runs through an entire experiment.
+        """
+
+        if not self.debug_mode:
             time_est_thr = Thread(target=self.calc_and_record_time_diffs)
             time_est_thr.start()
             instructions.instructions(
@@ -90,15 +108,15 @@ class ExperimentOne(object):
                     self.details_file_name
                     )
             time_est_thr.join()
-            screens.DetectPupilsScreen(
-                    disp=self.window, config_dict=self.exp_cfg_dict,
-                    text=self.exp_txt_dict[u'detect_pupils_screen'],
-                    pupil_coords_getter=self.et_server.get_pupil_locations,
-                    seconds_to_ok=self.exp_cfg_dict[u'detect_pupils_screen'][u'seconds_to_ok']
-                    ).run()
+        screens.DetectPupilsScreen(
+                disp=self.window, config_dict=self.exp_cfg_dict,
+                text=self.exp_txt_dict[u'detect_pupils_screen'],
+                pupil_coords_getter=self.et_server.get_pupil_locations,
+                seconds_to_ok=self.exp_cfg_dict[u'detect_pupils_screen'][u'seconds_to_ok']
+                ).run()
                 
         self.calibration = calibration_protocol.calibrate(
-            self.window, self.et_server, self.exp_txt_dict, self.exp_cfg_dict, debug_mode
+            self.window, self.et_server, self.exp_txt_dict, self.exp_cfg_dict, self.debug_mode
             )            
         
         all_set_up_flag = Event()
@@ -249,6 +267,10 @@ class ExperimentOne(object):
             exp_ender_event.set()
     
     def are_all_set_up(self, all_set_up_flag, min_time=5):
+        """
+        :param all_set_up_flag: threading.Event which this function will set upon all players being set up.
+        :param min_time: the minimum number of seconds we wait before checking if all are set up.
+        """
         sleep(min_time)
         self.handler_comm.set_values({u'is_set_up': True})
         while not self.handler_comm.get_value(u'all_set_up'):
@@ -256,6 +278,10 @@ class ExperimentOne(object):
         all_set_up_flag.set()
     
     def calc_and_record_time_diffs(self):
+        """ Calculates and records the difference in the internal clocks of the computer on which we are running the
+            experiment and the of the tracker itself.
+        :return: the difference in the computer's and the eye tracker's time
+        """
         time_diff = self.et_server.est_cpu_minus_tracker_time()
         with open(self.details_file_name, 'a') as deets:
             deets.write('''tracker_time_offset: {}
@@ -265,9 +291,8 @@ class ExperimentOne(object):
         return time_diff
     
     def randomize_reward_round_and_order(self):
-        """Currently, this function only randomizes the cdr of the list
-        in config file, i.e. it leaves the first in place but
-        randomizes the others.
+        """ Randomizes the order of the 2nd through nth multipliers, and chooses a random round to be the one in which
+            the players' scores will be used to determine their reward.
         """
         seq_ = []
         for i in range(self.num_games):

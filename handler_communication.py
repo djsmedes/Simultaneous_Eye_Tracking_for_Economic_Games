@@ -1,9 +1,9 @@
 """
-Created on Jul 15, 2014
-
-@author: smedema
+@author: djs
+@revision history:
+    *djs 07/14 - created
+    *djs 04/16 - updating documentation
 """
-
 
 import socket
 import threading
@@ -18,8 +18,16 @@ INTERVAL = 0.250
 
 
 class ClientThread(threading.Thread):
+    """ Thread that handles all communication with the server.
+    """
 
     def __init__(self, host, port, ID, num_players):
+        """
+        :param host: IP address for the connection
+        :param port: port for the connection
+        :param ID: ID of this player
+        :param num_players: the number of players in this game
+        """
         super(ClientThread, self).__init__()
         self.socket = socket.create_connection((host, port), None)
         self.lock = threading.Lock()
@@ -30,6 +38,10 @@ class ClientThread(threading.Thread):
         self._stop = threading.Event()
     
     def run(self):
+        """ Every quarter-second, checks for a new message received from the server; if there is one, execute any
+            commands it might contain.
+        """
+
         while not self._stop.is_set():
             sleep(INTERVAL)
             try:
@@ -50,6 +62,9 @@ class ClientThread(threading.Thread):
                 self.command(message_dict)
             
     def command(self, command_dict):
+        """ Executes a command
+        :param command_dict: dictionary containing info about the command
+        """
         if command_dict[u'request'] == u'get':
             self.get_stack.append(command_dict)
         else:
@@ -73,7 +88,6 @@ class ClientThread(threading.Thread):
         if values is not None:
             to_send_dict[u'values'] = values
         to_send_str = dumps(to_send_dict) + '\n'
-#         print to_send_str
         with self.lock:
             self.socket.send(to_send_str)
     

@@ -1,7 +1,8 @@
 """
-Created on May 28, 2014
-
-@author: smedema
+@author: djs
+@revision history:
+    *djs 05/14 - created
+    *djs 04/16 - updating documentation
 """
 
 from copy import deepcopy

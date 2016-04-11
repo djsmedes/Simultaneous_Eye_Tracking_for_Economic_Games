@@ -1,7 +1,8 @@
 """
-Created on Jun 25, 2014
-
-@author: smedema
+@author: djs
+@revision history:
+    *djs 06/14 - created
+    *djs 04/16 - updating documentation
 """
 
 import abc
@@ -19,6 +20,9 @@ import button
 
 
 class Screen(object):
+    """ Base Screen class, contains methods and data members common to all screens.
+    """
+
     __metaclass__ = abc.ABCMeta
     default_font_size = 40
     
@@ -27,7 +31,6 @@ class Screen(object):
                  width=None,
                  height=None,
                  margin=None,
-                 font_size=None,
                  wait_time=0
                  ):
         self.window = disp
@@ -59,7 +62,7 @@ class Screen(object):
         self.t0 = getAbsTime()
         while not self.move_on_flag.is_set():
             if self.continue_button.clickable:
-                if self.mouse.isPressedIn(self.continue_button._frame, [0]):
+                if self.mouse.isPressedIn(self.continue_button.frame, [0]):
                     self.move_on_flag.set()
             elif self.wait_time > 0:
                 if getAbsTime() - self.t0 > self.wait_time:
@@ -109,9 +112,9 @@ class Screen(object):
             return cfg_val
         
     def dict2text_stim(self, cfg):
-        try:
+        if u'width' in cfg:
             width = self.w_cfg_2_pix(cfg[u'width'])
-        except:
+        else:
             width = None
         text_stim_to_return = TextStim(self.window,
                                        text=cfg[u'text'],
@@ -132,6 +135,8 @@ class Screen(object):
     
 
 class BlankScreen(Screen):
+    """ A screen which has nothing on it.
+    """
 
     def __init__(self, disp, duration):
         super(BlankScreen, self).__init__(disp)
@@ -143,6 +148,8 @@ class BlankScreen(Screen):
 
 
 class FeedbackScreen(Screen):
+    """ A screen which shows participants the results of each round.
+    """
     
     # This should not be messed with, we want to maintain between-
     # subject counterbalancing, but not change things within-subject.
@@ -157,8 +164,7 @@ class FeedbackScreen(Screen):
                  height=None,
                  margin=None,
                  font_size=None,
-                 col_x_list=None,
-                 AOIs=False):
+                 col_x_list=None):
         super(FeedbackScreen, self).__init__(disp)
         self.gaze_pos_getter = gaze_pos_getter
         self.continue_button.clickable = True
@@ -310,6 +316,8 @@ class FeedbackScreen(Screen):
 
             
 class ContribScreen(Screen):
+    """ This screen lets users select their contribution.
+    """
     
     def __init__(self,
                  disp,
@@ -422,10 +430,12 @@ class ContribScreen(Screen):
         
 
 class DetectPupilsScreen(Screen):
+    """ Screen which lets subjects see where they should move their head to get the best calibration.
+    """
     
     def __init__(self, disp, text, config_dict, pupil_coords_getter, seconds_to_ok):
         super(DetectPupilsScreen, self).__init__(disp)
-        self.continue_button.setPos((0.0, 0.0))
+        self.continue_button.pos = (0.0, 0.0)
         self.pupil_coords_getter = pupil_coords_getter
         cfg = config_dict[u'detect_pupils_screen']
         self.in_range_ctr = 0
@@ -516,7 +526,9 @@ class DetectPupilsScreen(Screen):
             
             
 class InstructionsScreen(Screen):
-    
+    """ Screen to present instructions to participants.
+    """
+
     def __init__(self, disp, text, font_size=40, wait_time=0):
         super(InstructionsScreen, self).__init__(disp, wait_time=wait_time)
         self.instructions_text = TextStim(
@@ -534,6 +546,8 @@ class InstructionsScreen(Screen):
         
         
 class TimedInstructionsScreen(InstructionsScreen):
+    """ Screen to present instructions to participants, which will automatically advance after a certain amount of time.
+    """
     
     def __init__(self, disp, text, disp_time):
         super(TimedInstructionsScreen, self).__init__(disp, text)
@@ -546,7 +560,9 @@ class TimedInstructionsScreen(InstructionsScreen):
         
         
 class ClickInstructionsScreen(InstructionsScreen):
-    
+    """ Screen to present instructions to participants, allowing them to click a 'continue' button to move on.
+    """
+
     def __init__(self, disp, text, wait_time=1):
         super(ClickInstructionsScreen, self).__init__(disp, text, wait_time=wait_time)
         self.wait_time = wait_time
@@ -562,6 +578,8 @@ class ClickInstructionsScreen(InstructionsScreen):
                 
             
 class EventInstructionsScreen(InstructionsScreen):
+    """ Screen which will last until some end_event (a threading.Event object) is set.
+    """
     
     def __init__(self, disp, text, end_event):
         super(EventInstructionsScreen, self).__init__(disp, text)
@@ -572,6 +590,8 @@ class EventInstructionsScreen(InstructionsScreen):
         
         
 class WaitScreen(EventInstructionsScreen):
+    """ Screen to show participants while they are waiting for other participants to put in their contributions.
+    """
     
     def __init__(self, disp, text, end_event):
         super(EventInstructionsScreen, self).__init__(disp, text)
@@ -596,6 +616,9 @@ class WaitScreen(EventInstructionsScreen):
             
 
 class DemoScreen(Screen):
+    """ A screen to allow participants to mess around with eye tracking while they wait for the other participants to
+        finish instructions and calibration.
+    """
     
     def __init__(self, disp, end_event, frame_getter):
         super(DemoScreen, self).__init__(disp)
@@ -627,6 +650,8 @@ class DemoScreen(Screen):
             
             
 class ImageScreen(Screen):
+    """ A screen that will display an image.
+    """
 
     def __init__(self,
                  disp,
@@ -688,6 +713,8 @@ class ImageScreen(Screen):
 
 
 class KeyboardInputScreen(Screen):
+    """ A screen to allow users to enter data via the keyboard.
+    """
 
     def __init__(self, disp, text, input_prompt_list, correct_ans_list=None, extra_draw_list=None, wait_time=1):
         super(KeyboardInputScreen, self).__init__(disp, wait_time=wait_time)
@@ -747,12 +774,12 @@ class KeyboardInputScreen(Screen):
                 elif key in ['comma', 'period', 'num_decimal']:
                     self.active_input_field.text = temp + ','
         for index, input_field in enumerate(self.input_field_list):
-            if self.mouse.isPressedIn(input_field._frame, [0]):
+            if self.mouse.isPressedIn(input_field.frame, [0]):
                 self.active_input_field = input_field
             if input_field is self.active_input_field:
-                input_field._frame.fillColor = 'white'
-            elif input_field._frame.fillColor == 'white':
-                input_field._frame.fillColor = 'lightgrey'
+                input_field.color = 'white'
+            elif input_field.color == 'white':
+                input_field.color = 'lightgrey'
         for input_field in self.input_field_list:
             if input_field.text == '':
                 self.continue_button.clickable = False
@@ -793,12 +820,12 @@ class KeyboardInputScreen(Screen):
                 elif key in ['comma', 'period', 'num_decimal']:
                     self.active_input_field.text = temp + ','
         for index, input_field in enumerate(self.input_field_list):
-            if self.mouse.isPressedIn(input_field._frame, [0]):
+            if self.mouse.isPressedIn(input_field.frame, [0]):
                 self.active_input_field = input_field
             if input_field is self.active_input_field:
-                input_field._frame.fillColor = 'white'
-            elif input_field._frame.fillColor == 'white':
-                input_field._frame.fillColor = 'lightgrey'
+                input_field.color = 'white'
+            elif input_field.color == 'white':
+                input_field.color = 'lightgrey'
         for input_field in self.input_field_list:
             if input_field.text == '':
                 self.continue_button.clickable = False

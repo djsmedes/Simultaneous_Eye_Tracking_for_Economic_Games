@@ -1,23 +1,30 @@
 """
-Created on Jun 13, 2014
-
-@author: smedema
+@author: djs
+@revision history:
+    *djs 06/14 - created
+    *djs 04/16 - updating documentation
 """
 
 import socket
 import threading
-from os import _exit
+from sys import exit
 from time import sleep
 from json import loads, dumps
 from socket import errno
 
 
 HOST = ''
-BUFSIZE = 4096
+BUFFER_SIZE = 4096
 PORT = 11111
 
 
 class Session(object):
+    """ A Session is the equivalent of one experiment.
+
+        Each session starts with the Handler waiting to receive connections. The first computer that connects sends the
+        number of players that will be participating in the game (assumes that each participant is expecting the same
+        number of players).
+    """
 
     def __init__(self):
         self.lock = threading.Lock()
@@ -30,9 +37,12 @@ class Session(object):
         self.socket = socket.socket()
         self.socket.bind((HOST, PORT))
         self.socket.listen(0)
-        print('Experiment initialized')
+        print('Experiment initialized.')
         
     def run(self):
+        """ First tries to connect all players, then waits for one of those players to terminate the connection.
+            At that point, terminates the connections with the remaining players and ends the session.
+        """
         self.connect_players()
         self.disconnect.wait()
         for plyr in self.players:
@@ -47,6 +57,9 @@ class Session(object):
 
     @order.setter
     def order(self, value):
+        """ Can only be set once.
+        :param value: the order to apply multipliers to the participants' reward
+        """
         with self.lock:
             if not self._order:
                 self._order = value
@@ -57,6 +70,9 @@ class Session(object):
 
     @reward_game.setter
     def reward_game(self, value):
+        """ Can only be set once.
+        :param value: the game on which to base the participants' rewards
+        """
         with self.lock:
             if self._reward_game == -1:
                 self._reward_game = value
@@ -67,6 +83,9 @@ class Session(object):
 
     @num_players.setter
     def num_players(self, value):
+        """ Can only be set once.
+        :param value: the number of players
+        """
         with self.lock:
             if self._num_players == 0:
                 self._num_players = value
@@ -90,6 +109,9 @@ class Session(object):
 
     @property
     def all_set_up(self):
+        """ Property for clients to request.
+        :return: False if there are any players who haven't gotten past the instructions and calibration, True otherwise
+        """
         if len(self.players) < self.num_players:
             return False
         for plyr in self.players:
@@ -99,12 +121,17 @@ class Session(object):
 
     @property
     def all_contributions(self):
+        """ The client needs to have handling for this, we just hand over all the data we have.
+        :return: a dictionary where a player's IP address maps to a list of the contributions they have made
+        """
         answer_dict = {}
         for plyr in self.players:
             answer_dict[plyr.IP] = plyr.contributions
         return answer_dict
 
     def connect_players(self):
+        """ Connects all players; the first player to connect determines order, reward_game, and num_players.
+        """
         print('Awaiting connections.')
         self._connect_player()
         while self.num_players == 0:
@@ -114,6 +141,9 @@ class Session(object):
         print('All players present and accounted for.')
     
     def _connect_player(self):
+        """ Connects a single player. We pass this Session object as a parameter to each PlayerThread so that they can
+            directly access data about the Session, as well as signal to end the experiment.
+        """
         conn, addr = self.socket.accept()     
         self.players.append(PlayerThread(conn, addr, sess=self))
         print('{} connected.'.format(self.players[-1].IP))
@@ -121,8 +151,14 @@ class Session(object):
 
 
 class PlayerThread(threading.Thread):
-
+    """ A thread to handle communication with a single client.
+    """
     def __init__(self, conn, addr, sess):
+        """
+        :param conn: the socket to use for the connection
+        :param addr: the IP address to use
+        :param sess: the parent session object
+        """
         super(PlayerThread, self).__init__()
         self.socket = conn
         self.socket.setblocking(0)
@@ -137,6 +173,20 @@ class PlayerThread(threading.Thread):
         self._stop = threading.Event()
      
     def message_command(self, message_dict):
+        """ Parses and executes commands received from the client.
+        :param message_dict: a dictionary containing the data sent by the client
+                             u'request' - the type of client command. Possible types are:
+                                 u'quit'   - tells the Handler to end the Session
+                                 u'set'    - set a data member; expects additional u'values' subnode
+                                 u'append' - append data to a data member; expects additional u'values' subnode
+                                 u'get'    - get the value of a data member; expects additional u'values' subnode
+        :return: a dictionary containing data to be sent to the client
+                 u'category'      - the category of message, always u'handler'
+                 u'request'       - the request of message, just repats back to the client what it sent
+                 u'statuscode'    - http statuscode indicating what happened
+                 u'statusmessage' - optional, error message if there was one
+                 u'values'        - optional, contains data values to be sent back to client for u'get' commands
+        """
         reply_dict = {u'category': u'handler',
                       u'request': message_dict[u'request'],
                       u'statuscode': 200
@@ -187,10 +237,13 @@ class PlayerThread(threading.Thread):
         self._stop.set()
         
     def run(self):
+        """ Main loop that communicates with clients. Note that this will set the Session's .disconnect Event just
+            before terminating.
+        """
         while not self._stop.is_set():
             sleep(0.250)
             try:
-                messages = self.socket.recv(BUFSIZE).split('\n')
+                messages = self.socket.recv(BUFFER_SIZE).split('\n')
             except socket.error as error_:
                 if error_[0] == errno.EWOULDBLOCK:
                     continue
@@ -209,13 +262,11 @@ class PlayerThread(threading.Thread):
             for message in messages:
                 if message == '':
                     continue
-#                 print message
                 message_dict = loads(message)
                 reply = None
                 if message_dict[u'category'] == u'handler':
                     reply = self.message_command(message_dict)
                 else:
-                    # something is very wrong
                     print('Recved a message that was not handler category. '
                           'Message:\n{}'.format(message_dict))
                 if reply is not None:
@@ -231,27 +282,26 @@ class PlayerThread(threading.Thread):
 
 
 class QuitterThread(threading.Thread):
-
+    """ Barebones thread that could be used to terminate the overall program on some condition, by letting external
+        code set its stop Event.
+    """
     def __init__(self):
         super(QuitterThread, self).__init__()
-        self._stop = threading.Event()
+        self.stop = threading.Event()
          
     def run(self):
-        while not self._stop.is_set():
+        while not self.stop.is_set():
             try:
                 _ = raw_input()
             except Exception:
                 print('Exiting...')
-                _exit(0)
-             
-    def stop(self):
-        self._stop.set()
+                exit(0)
         
         
 quitter_thr = QuitterThread()
 quitter_thr.start()
 
-while not quitter_thr._stop.is_set():
+while not quitter_thr.stop.is_set():
     try:
         session = Session()
         session.run()

@@ -1,7 +1,8 @@
 """
-Created on Jul 29, 2014
-
-@author: smedema
+@author: djs
+@revision history:
+    *djs 07/14 - created
+    *djs 04/16 - updating documentation
 """
 
 from psychopy.visual import ImageStim, Rect
@@ -10,6 +11,13 @@ import screens
 
 
 def instructions(window, exp_txt_dict, exp_cfg_dict, details_file_name, text_w=800):
+    """ The instruction sequence for a particular experiment.
+    :param window: PsychoPy Window
+    :param exp_txt_dict: contains text strings the user will see
+    :param exp_cfg_dict: contains configuration data
+    :param details_file_name: name of file to write details to
+    :param text_w: width of the text
+    """
     for i in range(1, 6):
         key_i = 'instructions_{}'.format(i)
         txt_ = exp_txt_dict[key_i]
@@ -83,6 +91,11 @@ def instructions(window, exp_txt_dict, exp_cfg_dict, details_file_name, text_w=8
                     
                     
 def control_questions(window, exp_txt_dict, details_file_name):
+    """ Asks users a set of control questions to make sure they were paying attention.
+    :param window: PsychoPy Window
+    :param exp_txt_dict: contains text strings the user will see
+    :param details_file_name: file to write details to
+    """
     correct_ans = [
             [0, 0],
             [20, 20],

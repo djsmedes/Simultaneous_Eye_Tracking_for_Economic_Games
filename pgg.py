@@ -1,7 +1,8 @@
 """
-Created on Jul 21, 2014
-
-@author: smedema
+@author: djs
+@revision history:
+    *djs 07/14 - created
+    *djs 04/16 - updating documentation
 """
 
 import threading
@@ -11,6 +12,8 @@ from datetime import datetime
 
 
 class PublicGoodsGame(object):
+    """ Contains all data members and methods that a Public Goods Game would need (without worrying about eye tracking)
+    """
 
     def __init__(
             self, 
@@ -96,11 +99,10 @@ class PublicGoodsGame(object):
 
     def calculate_feedback_and_update(self, contr_dict):
         """
-        This is where we actually calculate the results of each round.
-
-        We need a dictionary of contributions whose keys are the IP
-        addresses of the computers from which each contribution was
-        made.
+        :returns This is where we actually calculate the results of each round.
+        :param contr_dict: a dictionary of contributions whose keys are the IP
+                           addresses of the computers from which each contribution was
+                           made.
         """
         contr_sum = 0
         for _, contr in contr_dict.iteritems():

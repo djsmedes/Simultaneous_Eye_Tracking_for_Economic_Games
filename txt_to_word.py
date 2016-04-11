@@ -1,7 +1,8 @@
 """
-Created on Jul 30, 2014
-
-@author: smedema
+@author: djs
+@revision history:
+    *djs 07/14 - created
+    *djs 04/16 - updating documentation
 """
 
 import yaml
