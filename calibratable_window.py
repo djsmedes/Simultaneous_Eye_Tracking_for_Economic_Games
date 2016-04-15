@@ -27,8 +27,6 @@ class CalibratableWindow(Window):
         self.num_calib_points = num_calib_points
         self.margin = margin
         self.calib_points_coords = self.gen_calib_point_coords()
-        self.outer_point = Circle()
-        self.inner_point = Circle()
         
     def calibrate(self, et_comm):
         """ Actually runs a calibration.
