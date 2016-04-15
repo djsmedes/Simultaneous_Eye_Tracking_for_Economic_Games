@@ -440,6 +440,8 @@ class DetectPupilsScreen(Screen):
         cfg = config_dict[u'detect_pupils_screen']
         self.in_range_ctr = 0
         fps = self.window.getActualFrameRate()
+        if fps is None:
+            fps = 60
         self.ctr_max = fps*seconds_to_ok
         
         self.detect_pupils_instructions = TextStim(

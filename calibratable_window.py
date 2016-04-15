@@ -34,17 +34,17 @@ class CalibratableWindow(Window):
         :return: the calibration result
         """
         self.setMouseVisible(False)
-        self.make_points()
+        (outer_point, inner_point) = self.make_points()
         start_reply = et_comm.start_calibration(self.num_calib_points)
         if start_reply[u'statuscode'] == 403:
             et_comm.abort_calibration()
             et_comm.start_calibration(self.num_calib_points)
         calibration_obj = {}
         for x, y in self.calib_points_coords:
-            self.point_place(x, y)
+            self.point_place(x, y, outer_point, inner_point)
             wait(0.750)            
             et_comm.start_calib_point(x, y)
-            self.point_expand_contract(duration=1)
+            self.point_expand_contract(duration=1, outer_point=outer_point, inner_point=inner_point)
             calibration_obj = et_comm.end_calib_point()
             wait(0.250)
         self.setMouseVisible(True)
@@ -53,23 +53,26 @@ class CalibratableWindow(Window):
     def make_points(self):
         """ Creates the circles that users will look at to calibrate.
         """
-        self.outer_point = Circle(self, radius=25)
-        self.outer_point.fillColor = 'white'
-        self.outer_point.setPos((5000, 5000))
-        self.inner_point = Circle(self, radius=5)
-        self.inner_point.fillColor = 'red'
-        self.inner_point.setPos((5000, 5000))
-    
-    def point_place(self, x, y):
+        outer_point = Circle(self, radius=25)
+        outer_point.fillColor = 'white'
+        outer_point.setPos((5000, 5000))
+        inner_point = Circle(self, radius=5)
+        inner_point.fillColor = 'red'
+        inner_point.setPos((5000, 5000))
+        return outer_point, inner_point  # returns a tuple
+
+    def point_place(self, x, y, outer_point, inner_point):
         """ Places a point (outer and inner) at the specified location
         :param x: Distance from the left edge of screen, in pixels
         :param y: Distance from the top edge of screen, in pixels
+        :param outer_point: the outer, larger part of the target point
+        :param inner_point: the inner, small part of the target point
         """
         xy_tuple = self.tl2c((x, y))
-        self.outer_point.setPos(xy_tuple)
-        self.inner_point.setPos(xy_tuple)
-        self.outer_point.draw()
-        self.inner_point.draw()
+        outer_point.setPos(xy_tuple)
+        inner_point.setPos(xy_tuple)
+        outer_point.draw()
+        inner_point.draw()
         self.flip()
         
     def tl2c(self, coords_tuple):
@@ -92,20 +95,25 @@ class CalibratableWindow(Window):
         y = (-coords_tuple[1]) + self.vres/2
         return x, y  # returns a tuple
             
-    def point_expand_contract(self, duration):
+    def point_expand_contract(self, duration, outer_point, inner_point):
+        """ Animates the point to draw attention
+        :param duration: how long the animation should last
+        :param outer_point: the outer, larger part of the target point
+        :param inner_point: the inner, small part of the target point
+        """
         start_time = getTime()
         ratio = 0
         while ratio < 1:
             ratio = (getTime()-start_time)/(duration*0.5)
-            self.outer_point.setRadius(25+25*ratio)
-            self.outer_point.draw()
-            self.inner_point.draw()
+            outer_point.setRadius(25+25*ratio)
+            outer_point.draw()
+            inner_point.draw()
             self.flip()
         while ratio < 2:
             ratio = (getTime()-start_time)/(duration*0.5)
-            self.outer_point.setRadius(75-25*ratio)
-            self.outer_point.draw()
-            self.inner_point.draw()
+            outer_point.setRadius(75-25*ratio)
+            outer_point.draw()
+            inner_point.draw()
             self.flip()
        
     def gen_calib_point_coords(self):
